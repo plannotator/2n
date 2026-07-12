@@ -14,18 +14,15 @@
     "url": "git+https://github.com/plannotator/2n.git"
   },
   "bin": {
-    "2e": "./bin/2e.ts",
     "2n": "./bin/2n.ts"
   },
   "type": "module",
   "scripts": {
     "start": "bun bin/2n.ts",
-    "auditions": "bun bin/2e.ts",
     "check": "oxfmt --check src bin scripts package.json tsconfig.json && tsc --noEmit",
     "format": "oxfmt --write src bin scripts package.json tsconfig.json",
     "test": "bun test",
     "build": "bun scripts/build.ts",
-    "build:auditions": "bun scripts/build-auditions.ts",
     "build:all": "bun scripts/build.ts --all"
   },
   "dependencies": {

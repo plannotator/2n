@@ -7,7 +7,7 @@ Directory-based notes for the terminal.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/plannotator/2n/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/plannotator/2n/main/scripts/install.sh | sh
 ```
 
 Standalone binaries are available for macOS, Linux, and Windows on the [releases page](https://github.com/plannotator/2n/releases).
