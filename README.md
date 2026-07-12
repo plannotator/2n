@@ -1,8 +1,8 @@
 # 2n
 
-I wanted a terminal notes app that is directory based—notes per directory instead of file saving—that I can use next to agent sessions in any directory.
+Directory-based notes for the terminal.
 
-So I built 2n: write notes for any directory, fast and ergonomic for mediocre terminal users (like me). There’s also tree-based navigation to find any note across your system.
+`2n` associates notes with the current working directory, making it useful alongside development and agent sessions without creating note files inside the project. Notes save automatically, and a global tree provides access to notes from every directory.
 
 ## Install
 
@@ -10,13 +10,32 @@ So I built 2n: write notes for any directory, fast and ergonomic for mediocre te
 curl -fsSL https://raw.githubusercontent.com/plannotator/2n/main/install.sh | sh
 ```
 
-## Use
+Standalone binaries are available for macOS, Linux, and Windows on the [releases page](https://github.com/plannotator/2n/releases).
+
+## Usage
 
 ```sh
-2n        # Notes for this directory
-2n --all  # All notes
+2n                            # Open the latest note for this directory
+2n --all                      # Browse notes from every directory
+2n --no-animation             # Skip the launch animation once
+2n config animation on|off    # Set the launch animation preference
 ```
 
-Type and it saves. `Ctrl+N` creates a note, `Ctrl+T` opens all notes, `Ctrl+P` previews, and `Ctrl+C` exits.
+## Controls
 
-[PolyForm Noncommercial 1.0.0](./LICENSE.md)
+| Key | Action |
+| --- | --- |
+| `Ctrl+N` | Create a note |
+| `Ctrl+T` | Open all notes |
+| `Ctrl+P` | Preview Markdown |
+| `Ctrl+C` | Save and exit |
+
+Typing starts immediately. Changes are saved automatically.
+
+## Storage
+
+Notes are stored in the operating system’s application-data directory, not in the current project. Set `TUINOTES_DATA_HOME` to use a custom location.
+
+## License
+
+[PolyForm Noncommercial 1.0.0](./LICENSE.md). Commercial use requires separate permission from Plannotator.
