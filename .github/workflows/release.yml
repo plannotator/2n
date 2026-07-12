@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Verify version tag
+        run: |
+          package_version="$(bun -e 'console.log((await Bun.file("package.json").json()).version)')"
+          test "$GITHUB_REF_NAME" = "v$package_version"
+
+      - name: Install all platform dependencies
+        run: bun install --frozen-lockfile --os='*' --cpu='*'
+
+      - name: Verify source
+        run: |
+          bun test
+          bun run check
+
+      - name: Build standalone executables
+        run: bun run build:all
+
+      - name: Package release assets
+        run: |
+          mkdir release
+          for asset in \
+            2n-darwin-arm64 \
+            2n-darwin-x64 \
+            2n-linux-arm64 \
+            2n-linux-arm64-musl \
+            2n-linux-x64 \
+            2n-linux-x64-musl
+          do
+            staging="release/$asset"
+            mkdir "$staging"
+            cp "dist/$asset" "$staging/$asset"
+            cp LICENSE.md "$staging/LICENSE.md"
+            chmod +x "$staging/$asset"
+            tar -czf "release/$asset.tar.gz" -C "$staging" .
+            rm -rf "$staging"
+          done
+
+          for asset in 2n-windows-arm64 2n-windows-x64
+          do
+            staging="release/$asset"
+            mkdir "$staging"
+            cp "dist/$asset.exe" "$staging/$asset.exe"
+            cp LICENSE.md "$staging/LICENSE.md"
+            (cd "$staging" && zip -q "../$asset.zip" "$asset.exe" LICENSE.md)
+            rm -rf "$staging"
+          done
+
+          (cd release && sha256sum *.tar.gz *.zip > checksums.txt)
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/* --verify-tag --generate-notes
