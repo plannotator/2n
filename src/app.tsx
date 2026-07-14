@@ -26,6 +26,7 @@ export interface AppProps {
   readonly initialSurface: "editor" | "notes";
   readonly launchAnimationEligible: boolean;
   readonly copyToClipboard: (text: string) => boolean;
+  readonly setMouseInputEnabled: (enabled: boolean) => void;
   readonly onExit: () => void;
   readonly registerExitHandler?: ((handler: () => void) => void) | undefined;
 }
@@ -89,6 +90,10 @@ export function App(props: AppProps) {
     if (animationVisible() && !animationFits()) {
       setAnimationVisible(false);
     }
+  });
+
+  createEffect(() => {
+    props.setMouseInputEnabled(surface()._tag === "notes");
   });
 
   usePaste(() => {

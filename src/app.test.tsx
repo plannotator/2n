@@ -90,29 +90,19 @@ describe("TUINotes UI", () => {
     }
   });
 
-  test("Cmd+C copies text selected with the mouse", async () => {
+  test("leaves mouse selection to the terminal outside the notes tree", async () => {
     const setup = await createApp();
     try {
-      await setup.renderer.mockInput.typeText("mouse copy target");
-      const editor = setup.renderer.renderer.root.findDescendantById("note-editor");
-      expect(isEditBufferRenderable(editor)).toBe(true);
-      if (!isEditBufferRenderable(editor)) {
-        return;
-      }
-      await setup.renderer.renderOnce();
-      await setup.renderer.mockMouse.drag(editor.x, editor.y, editor.x + 5, editor.y, 0, {
-        delayMs: 0,
-      });
       await setup.renderer.flush();
-      expect(editor.getSelectedText()).toBe("mouse");
+      expect(setup.mouseInputStates()).toEqual([false]);
 
-      setup.renderer.mockInput.pressKey("c", { super: true });
+      setup.renderer.mockInput.pressKey("t", { ctrl: true });
       await setup.renderer.flush();
+      expect(setup.mouseInputStates()).toEqual([false, true]);
 
-      expect(setup.copiedText()).toEqual(["mouse"]);
-      expect(editor.getSelectedText()).toBe("mouse");
-      expect(editor.plainText).toBe("mouse copy target");
-      expect(setup.exited()).toBe(false);
+      setup.renderer.mockInput.pressEscape();
+      await setup.renderer.flush();
+      expect(setup.mouseInputStates()).toEqual([false, true, false]);
     } finally {
       setup.renderer.renderer.destroy();
       setup.store.close();
@@ -176,6 +166,7 @@ async function createApp() {
   const note = createBlankNote(directory, 1);
   let didExit = false;
   const clipboard: Array<string> = [];
+  const mouseInputStates: Array<boolean> = [];
   const renderer = await testRender(
     () => (
       <App
@@ -188,6 +179,9 @@ async function createApp() {
           clipboard.push(text);
           return true;
         }}
+        setMouseInputEnabled={(enabled) => {
+          mouseInputStates.push(enabled);
+        }}
         onExit={() => {
           didExit = true;
         }}
@@ -195,7 +189,13 @@ async function createApp() {
     ),
     { width: 80, height: 20, kittyKeyboard: true },
   );
-  return { renderer, store, exited: () => didExit, copiedText: () => clipboard };
+  return {
+    renderer,
+    store,
+    exited: () => didExit,
+    copiedText: () => clipboard,
+    mouseInputStates: () => mouseInputStates,
+  };
 }
 
 function association(path: string): DirectoryAssociation {
