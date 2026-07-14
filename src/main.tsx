@@ -114,6 +114,33 @@ try {
   process.on("SIGINT", handleExitSignal);
   process.on("SIGTERM", handleExitSignal);
   process.on("SIGHUP", handleExitSignal);
+  const copyToClipboard = (text: string): boolean => {
+    const command =
+      process.platform === "darwin"
+        ? ["pbcopy"]
+        : process.platform === "win32"
+          ? ["clip.exe"]
+          : Bun.which("wl-copy") !== null
+            ? ["wl-copy"]
+            : Bun.which("xclip") !== null
+              ? ["xclip", "-selection", "clipboard"]
+              : undefined;
+    if (command !== undefined) {
+      try {
+        const copied = Bun.spawnSync(command, {
+          stdin: new Blob([text]),
+          stdout: "ignore",
+          stderr: "ignore",
+        });
+        if (copied.success) {
+          return true;
+        }
+      } catch {
+        // Fall through to the terminal clipboard protocol.
+      }
+    }
+    return renderer.copyToClipboardOSC52(text);
+  };
   await render(
     () => (
       <App
@@ -122,6 +149,7 @@ try {
         initialNote={initialNote}
         initialSurface={openCommand.initialSurface}
         launchAnimationEligible={launchAnimationEligible}
+        copyToClipboard={copyToClipboard}
         onExit={() => renderer.destroy()}
         registerExitHandler={(handler) => {
           requestControlledExit = handler;

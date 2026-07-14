@@ -25,6 +25,7 @@ export interface AppProps {
   readonly initialNote: Note;
   readonly initialSurface: "editor" | "notes";
   readonly launchAnimationEligible: boolean;
+  readonly copyToClipboard: (text: string) => boolean;
   readonly onExit: () => void;
   readonly registerExitHandler?: ((handler: () => void) => void) | undefined;
 }
@@ -46,6 +47,7 @@ export function App(props: AppProps) {
   let textarea: TextareaRenderable | undefined;
   let treeScroll: ScrollBoxRenderable | undefined;
   let actionQueue: Promise<void> = Promise.resolve();
+  let commandSelectionAnchor: number | undefined;
 
   const makeAutosave = (note: Note): Autosave =>
     new Autosave(note, props.store, systemAutosaveRuntime, {
@@ -100,6 +102,32 @@ export function App(props: AppProps) {
     }
     if (animationVisible()) {
       dismissAnimation();
+    }
+    const commandArrowSelection =
+      surface()._tag === "editor" &&
+      key.super === true &&
+      key.shift &&
+      selectWithCommandArrow(key.name);
+    if (commandArrowSelection) {
+      key.preventDefault();
+      key.stopPropagation();
+      return;
+    }
+    commandSelectionAnchor = undefined;
+    const selectedText = surface()._tag === "editor" ? (textarea?.getSelectedText() ?? "") : "";
+    const copyWithCommand = key.super === true && key.name === "c";
+    const copyWithControl = key.ctrl && key.name === "c" && selectedText.length > 0;
+    if (copyWithCommand || copyWithControl) {
+      key.preventDefault();
+      key.stopPropagation();
+      if (selectedText.length === 0) {
+        setMessage("Select text to copy");
+      } else if (!props.copyToClipboard(selectedText)) {
+        setMessage("Couldn’t access the system clipboard");
+      } else {
+        setMessage(undefined);
+      }
+      return;
     }
     if (key.ctrl && key.name === "c") {
       key.preventDefault();
@@ -167,6 +195,37 @@ export function App(props: AppProps) {
       setMessage(cause instanceof Error ? cause.message : "Unexpected application failure");
       setExiting(false);
     });
+  }
+
+  function selectWithCommandArrow(keyName: string): boolean {
+    if (textarea === undefined) {
+      return false;
+    }
+    const cursor = textarea.cursorOffset;
+    const selection = textarea.getSelection();
+    const anchor =
+      commandSelectionAnchor ??
+      (selection === null ? cursor : cursor === selection.start ? selection.end : selection.start);
+    switch (keyName) {
+      case "left":
+        textarea.gotoVisualLineHome();
+        break;
+      case "right":
+        textarea.gotoVisualLineEnd();
+        break;
+      case "up":
+        textarea.gotoBufferHome();
+        break;
+      case "down":
+        textarea.gotoBufferEnd();
+        break;
+      default:
+        return false;
+    }
+    const target = textarea.cursorOffset;
+    textarea.setSelection(Math.min(anchor, target), Math.max(anchor, target));
+    commandSelectionAnchor = anchor;
+    return true;
   }
 
   function dismissAnimation(): void {
@@ -395,6 +454,7 @@ export function App(props: AppProps) {
 
       <box flexGrow={1} position="relative" minHeight={1}>
         <textarea
+          id="note-editor"
           ref={(value: TextareaRenderable) => {
             textarea = value;
             if (props.initialSurface === "editor") {
@@ -421,7 +481,10 @@ export function App(props: AppProps) {
               autosave.change(textarea.plainText);
             }
           }}
-          onMouseDown={dismissAnimation}
+          onMouseDown={() => {
+            commandSelectionAnchor = undefined;
+            dismissAnimation();
+          }}
         />
 
         <Show when={surface()._tag === "preview"}>

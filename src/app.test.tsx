@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { isEditBufferRenderable } from "@opentui/core";
 import { testRender } from "@opentui/solid";
 
 import { App } from "./app.tsx";
@@ -63,6 +64,86 @@ describe("TUINotes UI", () => {
     }
   });
 
+  test("Cmd+C copies selected text without changing the note or exiting", async () => {
+    const setup = await createApp();
+    try {
+      await setup.renderer.mockInput.typeText("copy this, not that");
+      const editor = setup.renderer.renderer.root.findDescendantById("note-editor");
+      expect(isEditBufferRenderable(editor)).toBe(true);
+      if (!isEditBufferRenderable(editor)) {
+        return;
+      }
+      editor.setSelection(0, 9);
+      await setup.renderer.flush();
+      expect(editor.getSelectedText()).toBe("copy this");
+
+      setup.renderer.mockInput.pressKey("c", { super: true });
+      await setup.renderer.flush();
+
+      expect(setup.copiedText()).toEqual(["copy this"]);
+      expect(editor.getSelectedText()).toBe("copy this");
+      expect(editor.plainText).toBe("copy this, not that");
+      expect(setup.exited()).toBe(false);
+    } finally {
+      setup.renderer.renderer.destroy();
+      setup.store.close();
+    }
+  });
+
+  test("Cmd+C copies text selected with the mouse", async () => {
+    const setup = await createApp();
+    try {
+      await setup.renderer.mockInput.typeText("mouse copy target");
+      const editor = setup.renderer.renderer.root.findDescendantById("note-editor");
+      expect(isEditBufferRenderable(editor)).toBe(true);
+      if (!isEditBufferRenderable(editor)) {
+        return;
+      }
+      await setup.renderer.renderOnce();
+      await setup.renderer.mockMouse.drag(editor.x, editor.y, editor.x + 5, editor.y, 0, {
+        delayMs: 0,
+      });
+      await setup.renderer.flush();
+      expect(editor.getSelectedText()).toBe("mouse");
+
+      setup.renderer.mockInput.pressKey("c", { super: true });
+      await setup.renderer.flush();
+
+      expect(setup.copiedText()).toEqual(["mouse"]);
+      expect(editor.getSelectedText()).toBe("mouse");
+      expect(editor.plainText).toBe("mouse copy target");
+      expect(setup.exited()).toBe(false);
+    } finally {
+      setup.renderer.renderer.destroy();
+      setup.store.close();
+    }
+  });
+
+  test("Cmd+Shift+Left selects to the start of a line for copying", async () => {
+    const setup = await createApp();
+    try {
+      await setup.renderer.mockInput.typeText("first line\nsecond line");
+      const editor = setup.renderer.renderer.root.findDescendantById("note-editor");
+      expect(isEditBufferRenderable(editor)).toBe(true);
+      if (!isEditBufferRenderable(editor)) {
+        return;
+      }
+      expect(editor.logicalCursor).toMatchObject({ row: 1, col: 11 });
+      setup.renderer.mockInput.pressArrow("left", { super: true, shift: true });
+      expect(editor.getSelectedText()).toBe("second line");
+      await setup.renderer.flush();
+      expect(editor.getSelectedText()).toBe("second line");
+      setup.renderer.mockInput.pressKey("c", { ctrl: true });
+      await setup.renderer.flush();
+
+      expect(setup.copiedText()).toEqual(["second line"]);
+      expect(setup.exited()).toBe(false);
+    } finally {
+      setup.renderer.renderer.destroy();
+      setup.store.close();
+    }
+  });
+
   test("keeps footer shortcuts fixed while save status changes", async () => {
     const setup = await createApp();
     try {
@@ -94,6 +175,7 @@ async function createApp() {
   const directory = association(directoryPath);
   const note = createBlankNote(directory, 1);
   let didExit = false;
+  const clipboard: Array<string> = [];
   const renderer = await testRender(
     () => (
       <App
@@ -102,14 +184,18 @@ async function createApp() {
         initialNote={note}
         initialSurface="editor"
         launchAnimationEligible={false}
+        copyToClipboard={(text) => {
+          clipboard.push(text);
+          return true;
+        }}
         onExit={() => {
           didExit = true;
         }}
       />
     ),
-    { width: 80, height: 20 },
+    { width: 80, height: 20, kittyKeyboard: true },
   );
-  return { renderer, store, exited: () => didExit };
+  return { renderer, store, exited: () => didExit, copiedText: () => clipboard };
 }
 
 function association(path: string): DirectoryAssociation {
