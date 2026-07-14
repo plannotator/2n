@@ -90,19 +90,36 @@ describe("TUINotes UI", () => {
     }
   });
 
-  test("leaves mouse selection to the terminal outside the notes tree", async () => {
+  test("copies exact note text automatically when mouse selection ends", async () => {
     const setup = await createApp();
     try {
+      const firstLine = "9. Project overview note";
+      const secondLine = "   Let one note be designated";
+      await setup.renderer.mockInput.typeText(`${firstLine}\n${secondLine}`);
+      const editor = setup.renderer.renderer.root.findDescendantById("note-editor");
+      expect(isEditBufferRenderable(editor)).toBe(true);
+      if (!isEditBufferRenderable(editor)) {
+        return;
+      }
+      await setup.renderer.renderOnce();
+      await setup.renderer.mockMouse.click(editor.x, editor.y);
       await setup.renderer.flush();
-      expect(setup.mouseInputStates()).toEqual([false]);
+      expect(setup.copiedText()).toEqual([]);
 
-      setup.renderer.mockInput.pressKey("t", { ctrl: true });
+      await setup.renderer.mockMouse.drag(
+        editor.x,
+        editor.y,
+        editor.x + secondLine.length,
+        editor.y + 1,
+        0,
+        { delayMs: 0 },
+      );
       await setup.renderer.flush();
-      expect(setup.mouseInputStates()).toEqual([false, true]);
 
-      setup.renderer.mockInput.pressEscape();
-      await setup.renderer.flush();
-      expect(setup.mouseInputStates()).toEqual([false, true, false]);
+      expect(setup.copiedText()).toEqual([`${firstLine}\n${secondLine}`]);
+      expect(editor.getSelectedText()).toBe("");
+      expect(editor.plainText).toBe(`${firstLine}\n${secondLine}`);
+      expect(setup.renderer.captureCharFrame()).toContain("Copied to clipboard");
     } finally {
       setup.renderer.renderer.destroy();
       setup.store.close();
@@ -166,7 +183,6 @@ async function createApp() {
   const note = createBlankNote(directory, 1);
   let didExit = false;
   const clipboard: Array<string> = [];
-  const mouseInputStates: Array<boolean> = [];
   const renderer = await testRender(
     () => (
       <App
@@ -179,9 +195,6 @@ async function createApp() {
           clipboard.push(text);
           return true;
         }}
-        setMouseInputEnabled={(enabled) => {
-          mouseInputStates.push(enabled);
-        }}
         onExit={() => {
           didExit = true;
         }}
@@ -189,13 +202,7 @@ async function createApp() {
     ),
     { width: 80, height: 20, kittyKeyboard: true },
   );
-  return {
-    renderer,
-    store,
-    exited: () => didExit,
-    copiedText: () => clipboard,
-    mouseInputStates: () => mouseInputStates,
-  };
+  return { renderer, store, exited: () => didExit, copiedText: () => clipboard };
 }
 
 function association(path: string): DirectoryAssociation {

@@ -32,7 +32,7 @@ https://github.com/user-attachments/assets/3449b3d7-e83a-451d-8d1a-1a51b80e3205
 | `Ctrl+N` | Create a note |
 | `Ctrl+T` | Open all notes |
 | `Ctrl+P` | Preview Markdown |
-| Mouse drag, then terminal Copy | Copy text normally |
+| Mouse drag | Copy selected text automatically |
 | `Shift+Arrow` | Select text |
 | `Cmd+Shift+Arrow` | Select to the start or end of a line or note |
 | `Cmd+C` | Copy selected text |

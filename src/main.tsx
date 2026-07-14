@@ -106,7 +106,6 @@ try {
     exitOnCtrlC: false,
     exitSignals: [],
     targetFps: 30,
-    useMouse: openCommand.initialSurface === "notes",
     onDestroy: () => {
       removeSignalHandlers();
       closeStore();
@@ -151,9 +150,6 @@ try {
         initialSurface={openCommand.initialSurface}
         launchAnimationEligible={launchAnimationEligible}
         copyToClipboard={copyToClipboard}
-        setMouseInputEnabled={(enabled) => {
-          renderer.useMouse = enabled;
-        }}
         onExit={() => renderer.destroy()}
         registerExitHandler={(handler) => {
           requestControlledExit = handler;

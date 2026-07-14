@@ -26,7 +26,6 @@ export interface AppProps {
   readonly initialSurface: "editor" | "notes";
   readonly launchAnimationEligible: boolean;
   readonly copyToClipboard: (text: string) => boolean;
-  readonly setMouseInputEnabled: (enabled: boolean) => void;
   readonly onExit: () => void;
   readonly registerExitHandler?: ((handler: () => void) => void) | undefined;
 }
@@ -92,10 +91,6 @@ export function App(props: AppProps) {
     }
   });
 
-  createEffect(() => {
-    props.setMouseInputEnabled(surface()._tag === "notes");
-  });
-
   usePaste(() => {
     dismissAnimation();
   });
@@ -127,10 +122,8 @@ export function App(props: AppProps) {
       key.stopPropagation();
       if (selectedText.length === 0) {
         setMessage("Select text to copy");
-      } else if (!props.copyToClipboard(selectedText)) {
-        setMessage("Couldn’t access the system clipboard");
       } else {
-        setMessage(undefined);
+        copySelectedText(false);
       }
       return;
     }
@@ -230,6 +223,27 @@ export function App(props: AppProps) {
     const target = textarea.cursorOffset;
     textarea.setSelection(Math.min(anchor, target), Math.max(anchor, target));
     commandSelectionAnchor = anchor;
+    return true;
+  }
+
+  function copySelectedText(clearAfterCopy: boolean): boolean {
+    if (surface()._tag !== "editor") {
+      return false;
+    }
+    const selectedText = textarea?.getSelectedText() ?? "";
+    if (selectedText.length === 0) {
+      return false;
+    }
+    if (!props.copyToClipboard(selectedText)) {
+      setMessage("Couldn’t access the system clipboard");
+      return false;
+    }
+    if (clearAfterCopy) {
+      textarea?.clearSelection();
+      setMessage("Copied to clipboard");
+    } else {
+      setMessage(undefined);
+    }
     return true;
   }
 
@@ -436,7 +450,13 @@ export function App(props: AppProps) {
   }
 
   return (
-    <box width="100%" height="100%" flexDirection="column" backgroundColor={theme.background}>
+    <box
+      width="100%"
+      height="100%"
+      flexDirection="column"
+      backgroundColor={theme.background}
+      onMouseUp={() => copySelectedText(true)}
+    >
       <box
         height={1}
         flexDirection="row"
