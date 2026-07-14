@@ -1,6 +1,6 @@
 import type { ScrollBoxRenderable, TextareaRenderable } from "@opentui/core";
 import { useKeyboard, usePaste, useTerminalDimensions } from "@opentui/solid";
-import { createEffect, createMemo, createSignal, For, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 
 import { Autosave, systemAutosaveRuntime, type SaveState } from "./autosave.ts";
 import { LaunchAnimation } from "./launch-animation.tsx";
@@ -10,6 +10,7 @@ import type { NoteStore } from "./note-store.ts";
 import { markdownSyntaxStyle, theme } from "./theme.ts";
 
 const SAVE_STATUS_WIDTH = 11;
+const COPY_TOAST_DURATION_MS = 1_500;
 
 /** The one active application surface. */
 export type Surface =
@@ -41,6 +42,7 @@ export function App(props: AppProps) {
   const [selectedIndex, setSelectedIndex] = createSignal(0);
   const [previewBody, setPreviewBody] = createSignal("");
   const [message, setMessage] = createSignal<string | undefined>();
+  const [copyToastVisible, setCopyToastVisible] = createSignal(false);
   const [animationVisible, setAnimationVisible] = createSignal(false);
   const [exiting, setExiting] = createSignal(false);
   let exitWithoutSavingArmed = false;
@@ -48,6 +50,7 @@ export function App(props: AppProps) {
   let treeScroll: ScrollBoxRenderable | undefined;
   let actionQueue: Promise<void> = Promise.resolve();
   let commandSelectionAnchor: number | undefined;
+  let copyToastTimeout: ReturnType<typeof setTimeout> | undefined;
 
   const makeAutosave = (note: Note): Autosave =>
     new Autosave(note, props.store, systemAutosaveRuntime, {
@@ -88,6 +91,12 @@ export function App(props: AppProps) {
   createEffect(() => {
     if (animationVisible() && !animationFits()) {
       setAnimationVisible(false);
+    }
+  });
+
+  onCleanup(() => {
+    if (copyToastTimeout !== undefined) {
+      clearTimeout(copyToastTimeout);
     }
   });
 
@@ -240,11 +249,21 @@ export function App(props: AppProps) {
     }
     if (clearAfterCopy) {
       textarea?.clearSelection();
-      setMessage("Copied to clipboard");
-    } else {
-      setMessage(undefined);
     }
+    setMessage(undefined);
+    showCopyToast();
     return true;
+  }
+
+  function showCopyToast(): void {
+    if (copyToastTimeout !== undefined) {
+      clearTimeout(copyToastTimeout);
+    }
+    setCopyToastVisible(true);
+    copyToastTimeout = setTimeout(() => {
+      copyToastTimeout = undefined;
+      setCopyToastVisible(false);
+    }, COPY_TOAST_DURATION_MS);
   }
 
   function dismissAnimation(): void {
@@ -625,6 +644,21 @@ export function App(props: AppProps) {
             onComplete={() => setAnimationVisible(false)}
             onMouseDismiss={dismissAnimation}
           />
+        </Show>
+
+        <Show when={copyToastVisible()}>
+          <box
+            position="absolute"
+            right={1}
+            bottom={1}
+            height={1}
+            zIndex={50}
+            paddingLeft={1}
+            paddingRight={1}
+            backgroundColor={theme.panelRaised}
+          >
+            <text fg={theme.success}>Copied to clipboard</text>
+          </box>
         </Show>
       </box>
 

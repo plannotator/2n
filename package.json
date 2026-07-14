@@ -1,6 +1,6 @@
 {
   "name": "@plannotator/2n",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Directory-aware notes for the terminal",
   "homepage": "https://github.com/plannotator/2n#readme",

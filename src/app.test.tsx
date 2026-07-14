@@ -119,7 +119,13 @@ describe("TUINotes UI", () => {
       expect(setup.copiedText()).toEqual([`${firstLine}\n${secondLine}`]);
       expect(editor.getSelectedText()).toBe("");
       expect(editor.plainText).toBe(`${firstLine}\n${secondLine}`);
-      expect(setup.renderer.captureCharFrame()).toContain("Copied to clipboard");
+      const toastFrame = setup.renderer.captureCharFrame();
+      expect(toastFrame).toContain("Copied to clipboard");
+      expect(footerLine(toastFrame)).toContain("Ctrl+N");
+
+      await Bun.sleep(1_600);
+      await setup.renderer.renderOnce();
+      expect(setup.renderer.captureCharFrame()).not.toContain("Copied to clipboard");
     } finally {
       setup.renderer.renderer.destroy();
       setup.store.close();
